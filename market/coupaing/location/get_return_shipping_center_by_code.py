@@ -25,13 +25,14 @@ SCHEMA = "https"
 
 # HMAC 인증 헤더 생성 함수
 def generate_hmac_authorization(method, path, query='', secret_key=SECRET_KEY, access_key=ACCESS_KEY):
-    datetime = time.strftime('%y%m%d') + 'T' + time.strftime('%H%M%S') + 'Z'
-    message = datetime + method + path + query
+    # UTC 기준 시각으로 HMAC 서명 생성
+    datetime_str = time.strftime('%y%m%dT%H%M%SZ', time.gmtime())
+    message = datetime_str + method + path + query
     signature = hmac.new(secret_key.encode('utf-8'), message.encode('utf-8'), hashlib.sha256).hexdigest()
     authorization = (
-        f"CEA algorithm=HmacSHA256, access-key={access_key}, signed-date={datetime}, signature={signature}"
+        f"CEA algorithm=HmacSHA256, access-key={access_key}, signed-date={datetime_str}, signature={signature}"
     )
-    return authorization, datetime
+    return authorization, datetime_str
 
 if __name__ == "__main__":
     method = "GET"

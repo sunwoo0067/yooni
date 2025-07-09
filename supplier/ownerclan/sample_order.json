@@ -1,0 +1,26 @@
+{
+    "sender": {
+        "name": "보내는이",
+        "phoneNumber": "010-1234-5678",
+        "email": "b00679540@gmail.com"
+    },
+    "recipient": {
+        "name": "받는이",
+        "phoneNumber": "010-8765-4321",
+        "destinationAddress": {
+            "addr1": "서울 금천구 가산디지털1로 128",
+            "addr2": "808호",
+            "postalCode": "08507"
+        }
+    },
+    "products": [
+        {
+            "quantity": 1,
+            "itemKey": "WFHVCDV",
+            "optionAttributes": []
+        }
+    ],
+    "note": "테스트 원장주문코드",
+    "sellerNote": "테스트 주문관리코드",
+    "ordererNote": "테스트 배송시 요청사항"
+}

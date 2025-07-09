@@ -18,7 +18,8 @@ def generate_hmac_authorization(method, path, query=''):
     """
     # 1. 시간 값 생성 (예제와 동일하게)
     # Coupang API requires the signed-date to be in UTC (Zulu time)
-    datetime_str = time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())
+    # Coupang API requires the signed-date to be in 'yymmddTHHMMSSZ' format
+    datetime_str = time.strftime('%y%m%dT%H%M%SZ', time.gmtime())
     
     # 2. 서명 문자열 생성 (URL 인코딩 없이)
     message = datetime_str + method.upper() + path + query

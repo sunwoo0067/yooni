@@ -72,7 +72,30 @@ target/
 .venv
 venv/
 env/
+ENV/
+market/coupaing/venv/
 
 # IDEs
 .idea/
 .vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Supabase
+supabase/.branches
+supabase/.temp
+supabase-mcp
+
+# Sensitive files
+credentials.json
+secrets.json
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
