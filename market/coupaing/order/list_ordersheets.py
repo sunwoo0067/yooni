@@ -1,178 +1,220 @@
+# -*- coding: utf-8 -*-
 import os
 import sys
-import requests
-
-# 스크립트가 프로젝트의 어느 위치에서 실행되더라도 루트 경로를 찾아서 sys.path에 추가합니다.
-# 이렇게 하면 'market' 모듈을 항상 찾을 수 있습니다.
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-import hashlib
-import hmac
-import base64
-import time
-from urllib.parse import urlencode
 from dotenv import load_dotenv
-from datetime import datetime, timedelta
+import urllib.request
+import urllib.parse
+import ssl
+import json
+from datetime import datetime, timedelta, date
+from dateutil.relativedelta import relativedelta
+import time
 
-# 프로젝트 루트 경로를 기준으로 .env 파일을 로드합니다.
-dotenv_path = os.path.join(os.path.dirname(__file__), '..', '..', '..', '.env')
-load_dotenv(dotenv_path=dotenv_path)
+# 프로젝트 루트 경로를 sys.path에 추가
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+sys.path.append(project_root)
 
-# 공용 Supabase 클라이언트를 임포트합니다.
-# 이 코드가 제대로 동작하려면, market/coupaing/utils 폴더가 파이썬 경로에 포함되어야 합니다.
-# 일반적으로 VSCode와 같은 IDE는 프로젝트 루트를 자동으로 경로에 추가해줍니다.
-# 만약 ModuleNotFoundError가 발생하면, 프로젝트 실행 환경의 PYTHONPATH를 확인해야 합니다.
-from market.coupaing.utils.supabase_client import supabase_client as supabase
+from market.coupaing.utils.auth import generate_hmac_authorization
+from market.coupaing.utils.supabase_client import get_supabase_client
 
-# Coupang API 키 로드
+# .env 파일 로드
+load_dotenv()
+
+# Coupang API 정보
 VENDOR_ID = os.getenv('COUPANG_VENDOR_ID')
-ACCESS_KEY = os.getenv('COUPANG_ACCESS_KEY')
-SECRET_KEY = os.getenv('COUPANG_SECRET_KEY')
-API_BASE = 'https://api-gateway.coupang.com'
+BASE_URL = 'https://api-gateway.coupang.com'
 
-if not all([VENDOR_ID, ACCESS_KEY, SECRET_KEY]):
-    print('Coupang API 관련 환경변수(COUPANG_VENDOR_ID, COUPANG_ACCESS_KEY, COUPANG_SECRET_KEY)가 올바르게 설정되어 있는지 확인하세요.')
-    sys.exit(1)
+def save_orders_to_supabase(orders):
+    """
+    가져온 주문들을 Supabase에 저장합니다.
+    """
+    if not orders:
+        print("Supabase에 저장할 주문이 없습니다.")
+        return
 
-# HMAC 인증 헤더 생성 함수
-def generate_hmac_authorization(method, path, query='', secret_key=SECRET_KEY, access_key=ACCESS_KEY):
-    datetime_str = time.strftime('%y%m%dT%H%M%SZ', time.gmtime())
-    message = datetime_str + method + path + query
-    signature = hmac.new(secret_key.encode('utf-8'), message.encode('utf-8'), hashlib.sha256).hexdigest()
-    return f"CEA algorithm=HmacSHA256, access-key={access_key}, signed-date={datetime_str}, signature={signature}"
+    supabase = get_supabase_client()
+    orders_to_insert = []
+    items_to_insert = []
 
-def fetch_and_store_orders(createdAtFrom, createdAtTo, status, maxPerPage):
-    nextToken = ''
+    for order in orders:
+        # DB 저장을 위해 camelCase key를 snake_case로 변환
+        orders_to_insert.append({
+            'order_id': order.get('orderId'),
+            'shipment_box_id': order.get('shipmentBoxId'),
+            'order_status': order.get('status'),
+            'ordered_at': order.get('orderedAt'),
+            'paid_at': order.get('paidAt'),
+            'shipping_price': order.get('shippingPrice'),
+            'remote_price': order.get('remotePrice'),
+            'delivery_company_code': order.get('deliveryCompanyCode'),
+            'delivery_company_name': order.get('deliveryCompanyName'),
+            'invoice_number': order.get('invoiceNumber'),
+            'receiver_name': order.get('receiverName'),
+            'orderer_name': order.get('ordererName'),
+            'orderer_phone_number': order.get('ordererPhoneNumber'),
+            'receiver_phone_number': order.get('receiverPhoneNumber'),
+        })
+        
+        for item in order.get('orderItems', []):
+            items_to_insert.append({
+                'order_item_id': item.get('orderItemId'),
+                'order_id': order.get('orderId'),
+                'vendor_item_id': item.get('vendorItemId'),
+                'vendor_item_name': item.get('vendorItemName'),
+                'product_id': item.get('productId'),
+                'product_name': item.get('productName'),
+                'quantity': item.get('shippingCount'),
+                'order_price': item.get('orderPrice'),
+                'discount_price': item.get('discountPrice'),
+            })
+
+    if orders_to_insert:
+        print(f"{len(orders_to_insert)}개의 주문 정보를 Supabase에 저장합니다.")
+        response_orders = supabase.table('coupang_orders').upsert(orders_to_insert, on_conflict='order_id').execute()
+        if response_orders.data:
+            print("주문 정보 저장 완료.")
+        else:
+            print(f"주문 정보 저장 실패: {getattr(response_orders, 'error', 'No error information')}")
+
+    if items_to_insert:
+        print(f"{len(items_to_insert)}개의 주문 아이템 정보를 Supabase에 저장합니다.")
+        response_items = supabase.table('coupang_order_items').upsert(items_to_insert, on_conflict='order_item_id').execute()
+        if response_items.data:
+            print("주문 아이템 정보 저장 완료.")
+        else:
+            print(f"주문 아이템 정보 저장 실패: {getattr(response_items, 'error', 'No error information')}")
+
+
+def fetch_new_orders(start_date=None, end_date=None, statuses=None):
+    """
+    Coupang API에서 신규 주문 목록을 가져옵니다.
+    """
+    if not end_date:
+        end_date = datetime.now()
+    if not start_date:
+        start_date = end_date - timedelta(days=7)
+
+    path = '/v2/providers/openapi/apis/api/v4/vendors/{vendorId}/ordersheets'
+    # 로컬 문서와 hmac_signature.py에서 확인된 최종 경로 사용
+    path = '/v2/providers/openapi/apis/api/v4/vendors/{vendorId}/ordersheets'
+    formatted_path = path.format(vendorId=VENDOR_ID)
+    
+    all_orders = []
+    next_token = None
+
+    print("Coupang API에서 신규 주문 목록을 가져오는 중...")
     while True:
-        params = {
-            'createdAtFrom': createdAtFrom,
-            'createdAtTo': createdAtTo,
-            'status': status,
-            'maxPerPage': maxPerPage
+        # 마지막 시도: 올바른 경로 + 정렬된 쿼리 조합
+        # vendorId는 경로에 있으므로 쿼리에서 제외하고,
+        # 나머지 쿼리 파라미터를 알파벳 순으로 정렬 후 인코딩합니다.
+        query_params = {
+            'status': ','.join(statuses) if statuses else None,
+            'createdAtFrom': start_date.strftime('%Y-%m-%d'),
+            'createdAtTo': end_date.strftime('%Y-%m-%d'),
         }
-        if nextToken:
-            params['nextToken'] = nextToken
+        if next_token:
+            query_params['nextToken'] = next_token
 
-        path = f'/v2/providers/openapi/apis/api/v4/vendors/{VENDOR_ID}/ordersheets'
-        query = urlencode(params)
-        url = f'{API_BASE}{path}?{query}'
+        # Remove keys with None values
+        query_params = {k: v for k, v in query_params.items() if v is not None}
+        sorted_params = sorted(query_params.items())
+        query_string = '&'.join(f"{k}={v}" for k, v in sorted_params)  # keep ':' unencoded
 
-        authorization = generate_hmac_authorization('GET', path, query)
+        authorization_header = generate_hmac_authorization('GET', formatted_path, query_string)
         headers = {
-            'Authorization': authorization,
+            'Authorization': authorization_header,
             'Content-Type': 'application/json;charset=UTF-8'
         }
 
-        print(f'요청 URL: {url}')
-        response = requests.get(url, headers=headers)
-        print(f'응답 코드: {response.status_code}')
+        # 4. 최종 요청 URL을 생성합니다.
+        url = f"{BASE_URL}{formatted_path}?{query_string}"
 
         try:
-            data = response.json()
-            if response.status_code != 200:
-                print('API 오류:', data)
-                break
-
-            print('응답 데이터:', data)
-            if 'data' in data and data['data']:
-                unique_orders = {}
-                order_items_to_insert = []
-
-                for order in data['data']:
-                    order_id = order.get('orderId')
-                    if order_id and order_id not in unique_orders:
-                        print(f"주문번호: {order_id}, 주문자: {order.get('orderer', {}).get('name')}, 상태: {order.get('status')}")
-                        unique_orders[order_id] = {
-                            'order_id': order_id,
-                            'shipment_box_id': order.get('shipmentBoxId'),
-                            'ordered_at': order.get('orderedAt'),
-                            'paid_at': order.get('paidAt'),
-                            'status': order.get('status'),
-                            'shipping_price': order.get('shippingPrice'),
-                            'orderer_name': order.get('orderer', {}).get('name'),
-                            'receiver_name': order.get('receiver', {}).get('name'),
-                            'receiver_address': f"{order.get('receiver', {}).get('addr1')} {order.get('receiver', {}).get('addr2')}",
-                            'raw_data': order
-                        }
-
-                        if 'orderItems' in order and order['orderItems']:
-                            for item in order['orderItems']:
-                                order_items_to_insert.append({
-                                    'order_id': order_id,
-                                    'vendor_item_id': item.get('vendorItemId'),
-                                    'seller_product_id': item.get('sellerProductId'),
-                                    'vendor_item_name': item.get('vendorItemName'),
-                                    'seller_product_name': item.get('sellerProductName'),
-                                    'shipping_count': item.get('shippingCount'),
-                                    'sales_price': item.get('salesPrice'),
-                                    'order_price': item.get('orderPrice'),
-                                    'discount_price': item.get('discountPrice'),
-                                    'canceled': item.get('canceled'),
-                                    'raw_item_data': item
-                                })
-
-                orders_to_insert = list(unique_orders.values())
-                
-                if orders_to_insert:
+            # urllib을 사용하여 API 요청
+            req = urllib.request.Request(url, headers=headers, method='GET')
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            with urllib.request.urlopen(req, context=ctx) as resp:
+                raw_bytes = resp.read()
+                if resp.status >= 400:
                     try:
-                        # 1. Upsert orders
-                        response_orders = supabase.table('coupang_orders').upsert(orders_to_insert, on_conflict='order_id').execute()
-                        print(f'Supabase orders upsert 결과: {len(response_orders.data)} 건 처리')
+                        err_msg = raw_bytes.decode(resp.headers.get_content_charset() or 'utf-8')
+                    except Exception:
+                        err_msg = raw_bytes[:200]
+                    raise Exception(f"HTTP Error {resp.status}: {resp.reason}. Body: {err_msg}")
+                response_data = json.loads(raw_bytes.decode(resp.headers.get_content_charset() or 'utf-8'))
 
-                        # 2. Upsert order items
-                        if order_items_to_insert:
-                            # vendor_item_id가 없는 항목은 upsert에서 제외 (on_conflict 제약조건 위배 방지)
-                            items_with_vid = [item for item in order_items_to_insert if item.get('vendor_item_id') is not None]
-                            if items_with_vid:
-                                response_items = supabase.table('coupang_order_items').upsert(
-                                    items_with_vid, 
-                                    on_conflict='order_id,vendor_item_id' # 이 복합 키에 대한 UNIQUE 제약조건이 DB에 설정되어 있어야 합니다.
-                                ).execute()
-                                print(f'Supabase order_items upsert 결과: {len(response_items.data)} 건 처리')
-                            else:
-                                print('Upsert할 order_items가 없습니다 (vendor_item_id 누락).')
-
-                    except Exception as e:
-                        print(f'Supabase 저장 오류: {e}')
-            
-            if 'nextToken' in data and data['nextToken']:
-                nextToken = data['nextToken']
-                print('다음 페이지 토큰:', nextToken)
-                time.sleep(1)
+            if response_data.get('code') == 'SUCCESS' and response_data.get('data'):
+                orders = response_data['data']
+                all_orders.extend(orders)
+                print(f"{len(orders)}개의 주문을 가져왔습니다. (총 {len(all_orders)}개)")
+                
+                next_token = response_data.get('nextToken')
+                if not next_token:
+                    break
+                time.sleep(1) # API 과부하 방지
             else:
-                print(f'{createdAtFrom} ~ {createdAtTo} 기간의 모든 페이지를 처리했습니다.')
+                print(f"API 오류 또는 데이터 없음: {response_data.get('message')}")
                 break
-
         except Exception as e:
-            print('JSON 파싱 또는 처리 오류:', e)
+            print(f"API 요청 중 예외 발생: {e}")
             break
+        except json.JSONDecodeError:
+            print(f"JSON 파싱 오류. 응답 내용: {response.text}")
+            break
+            
+    print(f"총 {len(all_orders)}개의 신규 주문을 가져왔습니다.")
+    return all_orders
+
+
+def fetch_orders_monthly(start_date: date, end_date: date, statuses=None):
+    """Iterate month by month and fetch + save orders."""
+    current_start = start_date
+    while current_start <= end_date:
+        # Calculate month end
+        next_month_first = (current_start.replace(day=1) + relativedelta(months=1))
+        current_end = next_month_first - timedelta(days=1)
+        if current_end > end_date:
+            current_end = end_date
+
+        print(f"\n===== {current_start.strftime('%Y-%m-%d')} ~ {current_end.strftime('%Y-%m-%d')} =====")
+        orders = fetch_new_orders(current_start, current_end, statuses=statuses)
+        if orders:
+            save_orders_to_supabase(orders)
+        current_start = current_end + timedelta(days=1)
+
 
 if __name__ == "__main__":
-    createdAtFrom_str = sys.argv[1] if len(sys.argv) > 1 else '2025-06-01'
-    createdAtTo_str = sys.argv[2] if len(sys.argv) > 2 else '2025-06-30'
-    maxPerPage = sys.argv[3] if len(sys.argv) > 3 else '50'
+    import argparse
+    parser = argparse.ArgumentParser(description="Fetch Coupang orders and save to Supabase")
+    parser.add_argument("--start", help="Start date YYYY-MM-DD", default=None)
+    parser.add_argument("--batch-month", action="store_true", help="Fetch orders month-by-month to avoid API 500 errors")
+    parser.add_argument("--status", help="Comma-separated order statuses to filter, e.g. DELIVERY_COMPLETED")
+    parser.add_argument("--end", help="End date YYYY-MM-DD", default=None)
+    args = parser.parse_args()
+    statuses = [s.strip() for s in args.status.split(',')] if args.status else None
 
-    ALL_STATUSES = ['ACCEPT', 'INSTRUCT', 'DEPARTURE', 'DELIVERING', 'FINAL_DELIVERY', 'NONE_TRACKING']
+    try:
+        if args.end:
+            end_date_input = datetime.strptime(args.end, '%Y-%m-%d')
+        else:
+            end_date_input = datetime.utcnow()
+        if args.start:
+            start_date_input = datetime.strptime(args.start, '%Y-%m-%d')
+        else:
+            start_date_input = end_date_input - timedelta(days=7)
+    except ValueError as e:
+        print(f"날짜 형식이 올바르지 않습니다: {e}")
+        sys.exit(1)
 
-    start_date = datetime.strptime(createdAtFrom_str, '%Y-%m-%d')
-    end_date = datetime.strptime(createdAtTo_str, '%Y-%m-%d')
-
-    for status in ALL_STATUSES:
-        print(f"========== '{status}' 상태의 주문 조회를 시작합니다. ==========")
-        current_start = start_date
-        while current_start <= end_date:
-            current_end = current_start + timedelta(days=30)
-            if current_end > end_date:
-                current_end = end_date
-            
-            print(f"--- {current_start.date()} 부터 {current_end.date()} 까지의 데이터 조회 ---")
-            fetch_and_store_orders(
-                current_start.strftime('%Y-%m-%d'),
-                current_end.strftime('%Y-%m-%d'),
-                status,
-                maxPerPage
-            )
-            
-            current_start = current_end + timedelta(days=1)
-        print(f"========== '{status}' 상태의 주문 조회를 완료했습니다. ==========") 
+    print(f"{start_date_input.strftime('%Y-%m-%d')} ~ {end_date_input.strftime('%Y-%m-%d')} 범위의 주문을 조회합니다.")
+    if args.batch_month:
+        fetch_orders_monthly(start_date_input.date(), end_date_input.date(), statuses=statuses)
+        new_orders = None
+    else:
+        new_orders = fetch_new_orders(start_date=start_date_input, end_date=end_date_input, statuses=statuses)
+    # 시스템 시간 문제로 인한 400 오류를 피하기 위해, 테스트를 위한 특정 날짜 범위를 지정합니다.
+    # 실제 운영 환경에서는 이 부분을 제거하거나 주석 처리하고, fetch_new_orders()를 파라미터 없이 호출해야 합니다.
+    if new_orders:
+        save_orders_to_supabase(new_orders)
