@@ -1,0 +1,8 @@
+2025-07-17 16:30:56,068 - INFO - Executing query: 
+            SELECT r.id, r.supplier_id, r.product_key, r.raw_data 
+            FROM raw_product_data r
+            LEFT JOIN products p ON r.id = p.raw_data_id
+            WHERE p.id IS NULL
+         AND r.supplier_id = %s ORDER BY r.id LIMIT %s
+2025-07-17 16:30:56,069 - INFO - Parameters: [1, 5]
+2025-07-17 16:30:56,113 - ERROR - Fatal error: no results to fetch

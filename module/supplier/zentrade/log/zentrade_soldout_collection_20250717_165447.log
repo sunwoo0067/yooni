@@ -1,0 +1,57 @@
+2025-07-17 16:54:47,696 - __main__ - INFO - 상품 조회 시작 - 파라미터: {'id': 'b00679540', 'm_skey': '5284c44b0fcf0f877e6791c5884d6ea9', 'runout': 1}
+2025-07-17 16:54:48,112 - __main__ - INFO - 파싱 완료 - 상품 수: 13
+2025-07-17 16:54:48,221 - __main__ - ERROR - products 테이블 저장 실패: ERROR:  syntax error at or near "INSERT"
+LINE 14: INSERT 0 1,
+         ^
+
+2025-07-17 16:54:48,332 - __main__ - ERROR - products 테이블 저장 실패: ERROR:  syntax error at or near "INSERT"
+LINE 14: INSERT 0 1,
+         ^
+
+2025-07-17 16:54:48,434 - __main__ - ERROR - products 테이블 저장 실패: ERROR:  syntax error at or near "INSERT"
+LINE 14: INSERT 0 1,
+         ^
+
+2025-07-17 16:54:48,542 - __main__ - ERROR - products 테이블 저장 실패: ERROR:  syntax error at or near "INSERT"
+LINE 14: INSERT 0 1,
+         ^
+
+2025-07-17 16:54:48,649 - __main__ - ERROR - products 테이블 저장 실패: ERROR:  syntax error at or near "INSERT"
+LINE 14: INSERT 0 1,
+         ^
+
+2025-07-17 16:54:48,750 - __main__ - ERROR - products 테이블 저장 실패: ERROR:  syntax error at or near "INSERT"
+LINE 14: INSERT 0 1,
+         ^
+
+2025-07-17 16:54:48,855 - __main__ - ERROR - products 테이블 저장 실패: ERROR:  syntax error at or near "INSERT"
+LINE 14: INSERT 0 1,
+         ^
+
+2025-07-17 16:54:48,961 - __main__ - ERROR - products 테이블 저장 실패: ERROR:  syntax error at or near "INSERT"
+LINE 14: INSERT 0 1,
+         ^
+
+2025-07-17 16:54:49,068 - __main__ - ERROR - products 테이블 저장 실패: ERROR:  syntax error at or near "INSERT"
+LINE 14: INSERT 0 1,
+         ^
+
+2025-07-17 16:54:49,174 - __main__ - ERROR - products 테이블 저장 실패: ERROR:  syntax error at or near "INSERT"
+LINE 14: INSERT 0 1,
+         ^
+
+2025-07-17 16:54:49,280 - __main__ - ERROR - products 테이블 저장 실패: ERROR:  syntax error at or near "INSERT"
+LINE 14: INSERT 0 1,
+         ^
+
+2025-07-17 16:54:49,387 - __main__ - ERROR - products 테이블 저장 실패: ERROR:  syntax error at or near "INSERT"
+LINE 14: INSERT 0 1,
+         ^
+
+2025-07-17 16:54:49,488 - __main__ - ERROR - products 테이블 저장 실패: ERROR:  syntax error at or near "INSERT"
+LINE 14: INSERT 0 1,
+         ^
+
+2025-07-17 16:54:49,488 - __main__ - INFO - 상품 수집 완료 - 총 13개 중 0개 저장
+
+수집 완료! 총 0개 상품 저장됨

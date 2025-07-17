@@ -1,0 +1,41 @@
+{
+  "default_account": "main_store",
+  "accounts": [
+    {
+      "account_name": "main_store",
+      "access_key": "your_main_access_key_here",
+      "secret_key": "your_main_secret_key_here",
+      "vendor_id": "your_main_vendor_id_here",
+      "description": "메인 온라인 스토어",
+      "is_active": true,
+      "tags": ["main", "electronics", "books"]
+    },
+    {
+      "account_name": "fashion_store",
+      "access_key": "your_fashion_access_key_here",
+      "secret_key": "your_fashion_secret_key_here",
+      "vendor_id": "your_fashion_vendor_id_here",
+      "description": "패션 전문 스토어",
+      "is_active": true,
+      "tags": ["fashion", "clothing", "accessories"]
+    },
+    {
+      "account_name": "test_store",
+      "access_key": "your_test_access_key_here",
+      "secret_key": "your_test_secret_key_here",
+      "vendor_id": "your_test_vendor_id_here",
+      "description": "테스트 및 개발용 계정",
+      "is_active": false,
+      "tags": ["test", "development", "sandbox"]
+    },
+    {
+      "account_name": "beauty_store",
+      "access_key": "your_beauty_access_key_here",
+      "secret_key": "your_beauty_secret_key_here",
+      "vendor_id": "your_beauty_vendor_id_here",
+      "description": "뷰티 & 코스메틱 스토어",
+      "is_active": true,
+      "tags": ["beauty", "cosmetics", "skincare"]
+    }
+  ]
+}
