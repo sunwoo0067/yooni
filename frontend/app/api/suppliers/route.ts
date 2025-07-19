@@ -4,7 +4,8 @@ import { Supplier } from '@/lib/types/supplier';
 
 export async function GET(request: NextRequest) {
   try {
-    const suppliersQuery = `
+    // 공급사 기본 정보와 상품 통계 조회
+    const suppliers = await query(`
       SELECT 
         s.id,
         s.name,
@@ -13,23 +14,21 @@ export async function GET(request: NextRequest) {
         s.address,
         s.created_at,
         s.updated_at,
-        COUNT(DISTINCT p.id) as product_count,
-        COUNT(DISTINCT p.id) FILTER (WHERE p.status = 'active') as active_products,
-        MAX(p.created_at) as last_product_update,
-        COUNT(DISTINCT sa.id) > 0 as has_multiple_accounts
+        COALESCE(stats.product_count, 0) as product_count,
+        COALESCE(stats.active_products, 0) as active_products,
+        stats.last_product_update
       FROM suppliers s
-      LEFT JOIN products p ON s.id = p.supplier_id
-      LEFT JOIN supplier_accounts sa ON s.id = sa.supplier_id
-      GROUP BY s.id, s.name, s.contact_info, s.business_number, s.address, s.created_at, s.updated_at
+      LEFT JOIN (
+        SELECT 
+          supplier_id,
+          COUNT(*) as product_count,
+          COUNT(CASE WHEN status = 'active' THEN 1 END) as active_products,
+          MAX(updated_at) as last_product_update
+        FROM products 
+        GROUP BY supplier_id
+      ) stats ON s.id = stats.supplier_id
       ORDER BY s.id
-    `;
-    
-    const suppliers = await query<Supplier & { 
-      product_count: string; 
-      active_products: string;
-      last_product_update: Date;
-      has_multiple_accounts: boolean;
-    }>(suppliersQuery);
+    `);
     
     return NextResponse.json(suppliers);
   } catch (error) {

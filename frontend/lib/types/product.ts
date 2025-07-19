@@ -10,7 +10,7 @@ export interface Product {
   stock_quantity?: number;
   last_stock_check?: Date;
   stock_sync_enabled?: boolean;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
   created_at: Date;
   updated_at: Date;
 }

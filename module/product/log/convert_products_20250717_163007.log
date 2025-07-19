@@ -1,4 +1,0 @@
-2025-07-17 16:30:07,083 - ERROR - Fatal error: column reference "supplier_id" is ambiguous
-LINE 6:          AND supplier_id = 1 ORDER BY id LIMIT 5
-                     ^
-

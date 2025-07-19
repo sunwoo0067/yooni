@@ -3,9 +3,10 @@ import { query, getOne } from '@/lib/db';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
     const supplierId = parseInt(params.id);
     
     const accounts = await query(
@@ -27,9 +28,10 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
     const supplierId = parseInt(params.id);
     const { account_name, api_key, api_secret, is_active } = await request.json();
     

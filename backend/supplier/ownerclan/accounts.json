@@ -1,0 +1,14 @@
+[
+    {
+        "name": "오너클랜_계정1",
+        "api_key": "your_api_key_1",
+        "api_secret": "your_api_secret_1",
+        "is_active": true
+    },
+    {
+        "name": "오너클랜_계정2", 
+        "api_key": "your_api_key_2",
+        "api_secret": "your_api_secret_2",
+        "is_active": true
+    }
+]

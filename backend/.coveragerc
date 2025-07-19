@@ -1,0 +1,26 @@
+[run]
+# 커버리지 측정 설정
+source = .
+omit = 
+    */tests/*
+    */test_*
+    */__pycache__/*
+    */venv/*
+    */env/*
+    setup.py
+    */migrations/*
+    */config.py
+
+[report]
+# 커버리지 리포트 설정
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise AssertionError
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+    @abstract
+
+[html]
+directory = htmlcov

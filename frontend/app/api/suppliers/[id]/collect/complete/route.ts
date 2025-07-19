@@ -1,15 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import { query, getOne } from '@/lib/db';
 
+// 수집 완료 API - Python 스크립트나 외부 프로세스에서 호출
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supplierId = parseInt(params.id);
-    const result = await request.json();
+    const params = await context.params;
+    const { id } = params;
+    const supplierId = parseInt(id);
+    const body = await request.json();
     
-    // 수집 로그 업데이트
+    const { 
+      logId, 
+      success, 
+      totalProducts, 
+      newProducts, 
+      updatedProducts, 
+      failedProducts, 
+      errors 
+    } = body;
+    
+    // 로그 업데이트
     await query(
       `UPDATE collection_logs 
        SET completed_at = NOW(), 
@@ -20,26 +33,25 @@ export async function POST(
            failed_products = $5,
            error_message = $6,
            details = $7
-       WHERE supplier_id = $8 
-         AND status = 'running'
-         AND completed_at IS NULL`,
+       WHERE id = $8`,
       [
-        result.success ? 'completed' : 'failed',
-        result.totalProducts,
-        result.newProducts,
-        result.updatedProducts,
-        result.failedProducts,
-        result.errors.join('\n'),
-        JSON.stringify(result),
-        supplierId
+        success ? 'completed' : 'failed',
+        totalProducts || 0,
+        newProducts || 0,
+        updatedProducts || 0,
+        failedProducts || 0,
+        errors ? errors.join('\n') : null,
+        JSON.stringify(body),
+        logId
       ]
     );
     
     return NextResponse.json({ success: true });
+    
   } catch (error) {
-    console.error('Error completing collection:', error);
+    console.error('Complete API error:', error);
     return NextResponse.json(
-      { error: '수집 완료 처리 중 오류가 발생했습니다.' },
+      { error: '완료 처리 중 오류가 발생했습니다.' },
       { status: 500 }
     );
   }

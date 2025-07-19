@@ -3,10 +3,12 @@ import { query, getOne } from '@/lib/db';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supplierId = parseInt(params.id);
+    const params = await context.params;
+    const { id } = params;
+    const supplierId = parseInt(id);
     const body = await request.json();
     const { periodType, periodValue, startDate, endDate } = body;
     
@@ -52,20 +54,55 @@ export async function POST(
     // 실제 운영환경에서는 Queue 시스템이나 별도 Worker 프로세스 사용 권장
     setTimeout(async () => {
       try {
-        // 동적 import로 서버 사이드에서만 실행
-        const { CollectionManager } = await import('@/lib/collection/collection-manager');
-        await CollectionManager.runCollection(supplierId, {
+        console.log(`Starting collection for supplier ${supplierId}...`);
+        
+        const { default: EnhancedCollectionManager } = await import('@/lib/collection/enhanced-collection-manager');
+        const result = await EnhancedCollectionManager.runCollection(supplierId, {
           startDate: collectionStartDate,
           endDate: collectionEndDate
         });
+        
+        console.log(`Collection completed for supplier ${supplierId}:`, result);
+        
+        // 수집 완료 후 로그 업데이트
+        await query(
+          `UPDATE collection_logs 
+           SET completed_at = NOW(), 
+               status = $1,
+               total_products = $2,
+               new_products = $3,
+               updated_products = $4,
+               failed_products = $5,
+               error_message = $6,
+               details = $7
+           WHERE id = $8`,
+          [
+            result.success ? 'completed' : 'failed',
+            result.statistics?.total || 0,
+            result.statistics?.created || 0,
+            result.statistics?.updated || 0,
+            result.statistics?.failed || 0,
+            result.errors ? result.errors.map((e: any) => e.message || e).join('\n') : '',
+            JSON.stringify(result),
+            log?.id
+          ]
+        );
       } catch (error) {
         console.error('Collection process failed:', error);
+        // 더 상세한 에러 정보 저장
+        const errorMessage = error instanceof Error 
+          ? `${error.message}\nStack: ${error.stack}` 
+          : String(error);
+          
         // 실패 시 로그 업데이트
         await query(
           `UPDATE collection_logs 
-           SET completed_at = NOW(), status = 'failed', error_message = $1
-           WHERE id = $2`,
-          [String(error), log?.id]
+           SET completed_at = NOW(), 
+               status = 'failed', 
+               error_message = $1,
+               details = $2
+           WHERE id = $3`,
+          [errorMessage, JSON.stringify({ error: errorMessage }), log?.id]
         );
       }
     }, 0);

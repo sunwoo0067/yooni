@@ -3,10 +3,12 @@ import { getOne, query } from '@/lib/db';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supplierId = parseInt(params.id);
+    const params = await context.params;
+    const { id } = await params;
+    const supplierId = parseInt(id);
     
     const config = await getOne(
       `SELECT * FROM supplier_configs WHERE supplier_id = $1`,
@@ -42,10 +44,12 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supplierId = parseInt(params.id);
+    const params = await context.params;
+    const { id } = await params;
+    const supplierId = parseInt(id);
     const {
       api_type,
       api_endpoint,

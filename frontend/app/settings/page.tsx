@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 export default function SettingsPage() {
   return (
     <div className="p-6">
@@ -75,6 +77,11 @@ export default function SettingsPage() {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <h2 className="text-lg font-semibold mb-4">빠른 작업</h2>
             <div className="space-y-3">
+              <Link href="/settings/config" className="block">
+                <button className="w-full px-4 py-2 text-left border border-blue-500 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100">
+                  환경변수 관리
+                </button>
+              </Link>
               <button className="w-full px-4 py-2 text-left border border-gray-300 rounded-lg hover:bg-gray-50">
                 데이터 백업
               </button>

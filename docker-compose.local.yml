@@ -1,0 +1,134 @@
+version: '3.8'
+
+services:
+  # PostgreSQL - 로컬 개발용 단순화된 설정
+  postgres:
+    image: postgres:15-alpine
+    ports:
+      - "5434:5432"  # 로컬 포트 5434 사용
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "1234"
+      POSTGRES_DB: yoonni
+      # 성능 최적화 설정
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
+      POSTGRES_HOST_AUTH_METHOD: "md5"
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+      - ./scripts/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    command: 
+      - postgres
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - effective_cache_size=1GB
+      - -c
+      - maintenance_work_mem=64MB
+      - -c
+      - work_mem=4MB
+      - -c
+      - max_connections=100
+      - -c
+      - random_page_cost=1.1  # SSD 최적화
+      - -c
+      - log_statement=mod     # 변경 쿼리만 로깅
+      - -c
+      - log_duration=on
+      - -c
+      - log_min_duration_statement=1000  # 1초 이상 쿼리만 로깅
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Redis - 로컬 개발용 단순화된 설정
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: 
+      - redis-server
+      - --requirepass
+      - redis123
+      - --maxmemory
+      - 512mb
+      - --maxmemory-policy
+      - allkeys-lru
+      - --save
+      - ""  # 디스크 저장 비활성화 (성능 향상)
+    volumes:
+      - ./data/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # MLflow - 선택적 사용 (AI/ML 기능 필요시)
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:latest
+    ports:
+      - "5000:5000"
+    environment:
+      MLFLOW_BACKEND_STORE_URI: sqlite:///mlflow/mlflow.db
+      MLFLOW_DEFAULT_ARTIFACT_ROOT: /mlflow/artifacts
+    volumes:
+      - ./data/mlflow:/mlflow
+    command: 
+      - mlflow
+      - server
+      - --host
+      - 0.0.0.0
+      - --port
+      - "5000"
+      - --backend-store-uri
+      - sqlite:///mlflow/mlflow.db
+      - --default-artifact-root
+      - /mlflow/artifacts
+      - --serve-artifacts
+    profiles:
+      - ml  # docker-compose --profile ml up 으로 실행시만 활성화
+    restart: unless-stopped
+
+  # 개발용 데이터베이스 관리 도구 (선택적)
+  adminer:
+    image: adminer:latest
+    ports:
+      - "8080:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+      ADMINER_DESIGN: pepa-linha-dark
+    profiles:
+      - tools  # docker-compose --profile tools up 으로 실행시만 활성화
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  # Redis 관리 도구 (선택적)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    ports:
+      - "8081:8081"
+    environment:
+      REDIS_HOSTS: local:redis:6379:0:redis123
+    profiles:
+      - tools  # docker-compose --profile tools up 으로 실행시만 활성화
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+networks:
+  default:
+    name: yoonni_local_network
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  mlflow_data:
+    driver: local

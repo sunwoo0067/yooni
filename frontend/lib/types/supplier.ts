@@ -14,7 +14,7 @@ export interface SupplierConfig {
   collection_enabled: boolean;
   collection_schedule?: string;
   last_collected_at?: Date;
-  settings?: any;
+  settings?: Record<string, unknown>;
 }
 
 export interface CollectionLog {

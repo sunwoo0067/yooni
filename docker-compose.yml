@@ -1,0 +1,178 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 1234
+      POSTGRES_DB: yoonni
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend Services
+  backend-monitoring:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: python monitoring_server.py
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://postgres:1234@postgres:5432/yoonni
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    restart: unless-stopped
+
+  backend-websocket:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: python websocket_server.py
+    ports:
+      - "8002:8002"
+    environment:
+      DATABASE_URL: postgresql://postgres:1234@postgres:5432/yoonni
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    restart: unless-stopped
+
+  backend-workflow:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: python workflow_api_server.py
+    ports:
+      - "8001:8001"
+    environment:
+      DATABASE_URL: postgresql://postgres:1234@postgres:5432/yoonni
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    restart: unless-stopped
+
+  # AI/ML Services
+  backend-ai:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: python main.py
+    ports:
+      - "8003:8000"
+    environment:
+      DATABASE_URL: postgresql://postgres:1234@postgres:5432/yoonni
+      REDIS_URL: redis://redis:6379
+      PYTHONPATH: /app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - mlflow_data:/app/mlruns
+      - model_registry:/app/model_registry
+    restart: unless-stopped
+
+  # MLflow Tracking Server
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:latest
+    ports:
+      - "5000:5000"
+    environment:
+      MLFLOW_BACKEND_STORE_URI: postgresql://postgres:1234@postgres:5432/mlflow
+      MLFLOW_ARTIFACT_ROOT: /mlartifacts
+    command: >
+      mlflow server
+      --backend-store-uri postgresql://postgres:1234@postgres:5432/mlflow
+      --default-artifact-root /mlartifacts
+      --host 0.0.0.0
+      --port 5000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - mlflow_artifacts:/mlartifacts
+    restart: unless-stopped
+
+  # Frontend Application
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8001
+      DATABASE_URL: postgresql://postgres:1234@postgres:5432/yoonni
+    depends_on:
+      - backend-monitoring
+      - backend-websocket
+      - backend-workflow
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    restart: unless-stopped
+
+  # Database Migrations
+  migrations:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: python -m database.migrations
+    environment:
+      DATABASE_URL: postgresql://postgres:1234@postgres:5432/yoonni
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+volumes:
+  postgres_data:
+  redis_data:
+  mlflow_data:
+  mlflow_artifacts:
+  model_registry:
+
+networks:
+  default:
+    name: yoonni_network

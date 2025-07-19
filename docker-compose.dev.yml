@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    command: redis-server --requirepass redis123
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  # AI/ML Service
+  backend-ai:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: python main.py
+    ports:
+      - "8003:8000"
+    environment:
+      DATABASE_URL: postgresql://postgres:1234@host.docker.internal:5434/yoonni
+      REDIS_URL: redis://:redis123@redis:6379
+      PYTHONPATH: /app
+      ENVIRONMENT: development
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    depends_on:
+      - redis
+      - mlflow
+    volumes:
+      - ./backend:/app
+      - mlflow_data:/app/mlruns
+      - model_registry:/app/model_registry
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  # MLflow Tracking Server
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:latest
+    ports:
+      - "5000:5000"
+    environment:
+      MLFLOW_BACKEND_STORE_URI: postgresql://postgres:1234@host.docker.internal:5434/mlflow
+      MLFLOW_ARTIFACT_ROOT: /mlartifacts
+    command: >
+      mlflow server
+      --backend-store-uri postgresql://postgres:1234@host.docker.internal:5434/mlflow
+      --default-artifact-root /mlartifacts
+      --host 0.0.0.0
+      --port 5000
+      --serve-artifacts
+    volumes:
+      - mlflow_artifacts:/mlartifacts
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  mlflow_data:
+  mlflow_artifacts:
+  model_registry:
+
+networks:
+  default:
+    name: yoonni_dev_network

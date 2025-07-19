@@ -3,9 +3,10 @@ import { query, getOne } from '@/lib/db';
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string; accountId: string } }
+  context: { params: Promise<{ id: string; accountId: string }> }
 ) {
   try {
+    const params = await context.params;
     const supplierId = parseInt(params.id);
     const accountId = parseInt(params.accountId);
     const { account_name, api_key, api_secret, is_active } = await request.json();
@@ -44,9 +45,10 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; accountId: string } }
+  context: { params: Promise<{ id: string; accountId: string }> }
 ) {
   try {
+    const params = await context.params;
     const supplierId = parseInt(params.id);
     const accountId = parseInt(params.accountId);
     
